@@ -1,4 +1,16 @@
-venv/
+# environment
 .env
+
+# vector store 
+data/chroma_db/
+
+# python
 __pycache__/
 *.pyc
+*.pyo
+venv/
+.venv/
+
+# editor
+.vscode/
+.idea/
