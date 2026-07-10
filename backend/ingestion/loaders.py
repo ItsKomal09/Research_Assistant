@@ -1,5 +1,19 @@
 import sys
 import os
+
+# Wikipedia now requires a User-Agent header on all API requests (returns
+# 403 without one, as of a recent policy change). Patching Session.request
+# directly (rather than requests.get) guarantees this applies no matter
+# which module or import order pulls in the wikipedia package internally.
+import requests
+_original_request = requests.Session.request
+def _request_with_user_agent(self, method, url, **kwargs):
+    headers = kwargs.get("headers") or {}
+    headers.setdefault("User-Agent", "ResearchMind/1.0 (student project)")
+    kwargs["headers"] = headers
+    return _original_request(self, method, url, **kwargs)
+requests.Session.request = _request_with_user_agent
+
 os.environ.setdefault("USER_AGENT", "researchmind-bot/1.0")
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -14,7 +28,6 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
-
 
 # ────────────────────────────────────────────────────
 # 1. PDF LOADER
