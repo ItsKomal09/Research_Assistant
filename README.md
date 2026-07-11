@@ -21,4 +21,4 @@ An intelligent research assistant that combines a production-grade RAG pipeline 
 5. Agentic AI : LangGraph (ReAct agent)
 6. Backend : FastAPI + Uvicorn
 7. Frontend :  React + Vite
-8. Evaluation : RAGAS
+8. Evaluation : RAGAS 
