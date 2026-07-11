@@ -1,5 +1,6 @@
 import sys
 import os
+import re
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import logging
@@ -48,7 +49,8 @@ def run_agent(question: str, session_id: str = "default") -> dict:
     reasoning_trace, sources = _build_trace_and_sources(messages)
 
     final_message = messages[-1]
-    answer = final_message.content if isinstance(final_message, AIMessage) else str(final_message.content)
+    raw_answer = final_message.content if isinstance(final_message, AIMessage) else str(final_message.content)
+    answer = _clean_leaked_tool_call(raw_answer)
 
     logger.info(
         f"Agent run complete — {len(reasoning_trace)} trace steps, {len(sources)} sources"
@@ -61,6 +63,28 @@ def run_agent(question: str, session_id: str = "default") -> dict:
         "question": question,
         "session_id": session_id,
     }
+
+
+
+def _clean_leaked_tool_call(text: str) -> str:
+    """
+    Local Ollama models don't always emit a second/refined tool call in
+    the proper structured format LangGraph expects — sometimes the model
+    writes the tool call as plain JSON text inside its response instead.
+    When that happens, this strips the leaked JSON rather than showing it
+    to the user, and adds an honest note that a follow-up lookup was
+    attempted but didn't complete cleanly.
+    """
+    if not isinstance(text, str):
+        return text
+
+    leaked_pattern = re.search(r'\{\s*"name"\s*:\s*".+?"\s*,\s*"parameters"\s*:.*?\}', text, re.DOTALL)
+    if leaked_pattern:
+        cleaned = text[:leaked_pattern.start()].strip()
+        note = "\n\n*(The agent attempted a follow-up lookup that didn't complete cleanly — the answer above reflects what it had gathered so far.)*"
+        return (cleaned + note) if cleaned else "I wasn't able to complete this lookup cleanly. Please try rephrasing the question."
+
+    return text
 
 
 def _build_trace_and_sources(messages: list) -> tuple:

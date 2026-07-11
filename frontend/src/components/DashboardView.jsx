@@ -70,13 +70,14 @@ export default function DashboardView() {
           <h3>Chunks by source type</h3>
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={breakdown}>
-              <CartesianGrid stroke="#d8d4bd" vertical={false} />
-              <XAxis dataKey="name" stroke="#8c9282" fontSize={11} />
-              <YAxis stroke="#8c9282" fontSize={11} allowDecimals={false} />
+              <CartesianGrid stroke="rgba(255,255,255,0.09)" vertical={false} />
+              <XAxis dataKey="name" stroke="#766a94" fontSize={11} />
+              <YAxis stroke="#766a94" fontSize={11} allowDecimals={false} />
               <Tooltip
-                contentStyle={{ background: '#f5f6ee', border: '1px solid #c6c2a8', fontSize: 12 }}
+                contentStyle={{ background: '#1c1433', border: '1px solid rgba(255,255,255,0.16)', fontSize: 12, borderRadius: 9 }}
+                labelStyle={{ color: '#f1edfb' }}
               />
-              <Bar dataKey="count" fill="#9c3a2c" radius={[3, 3, 0, 0]} />
+              <Bar dataKey="count" fill="#a78bfa" radius={[6, 6, 0, 0]} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -91,8 +92,8 @@ export default function DashboardView() {
         <textarea
           rows={4}
           style={{
-            width: '100%', background: '#f5f6ee', border: '1px solid #c6c2a8',
-            borderRadius: 3, color: '#202b23', fontFamily: 'IBM Plex Mono, monospace',
+            width: '100%', background: 'rgba(0,0,0,0.2)', border: '1px solid rgba(255,255,255,0.16)',
+            borderRadius: 9, color: '#f1edfb', fontFamily: 'IBM Plex Mono, monospace',
             fontSize: 12.5, padding: 10, marginBottom: 12,
           }}
           value={questions}

@@ -29,7 +29,7 @@ export default function SourceCitations({ sources }) {
           return (
             <div className="source-card" key={i}>
               <div className="source-stamp">
-                <span className="source-stamp-inner">№{String(i + 1).padStart(2, '0')}</span>
+                <span className="source-stamp-inner">{String(i + 1).padStart(2, '0')}</span>
               </div>
               <div className="source-card-body">
                 <div className="source-card-head">

@@ -102,12 +102,14 @@ export default function ChatView() {
     const question = input.trim();
     if (!question || sending) return;
 
+    const assistantIndex = messages.length + 1; // user msg, then this assistant msg
     setInput('');
     setSending(true);
 
     const userMsg = { role: 'user', content: question };
     const pendingMsg = { role: 'assistant', content: '', pending: true };
     setMessages((prev) => [...prev, userMsg, pendingMsg]);
+    setSelectedIdx(assistantIndex); // auto-show the trace for the message being answered
     scrollToBottom();
 
     try {
