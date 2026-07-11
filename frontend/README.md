@@ -19,48 +19,60 @@ the backend is running and Ollama is up (`ollama serve`) before testing chat.
 
 ```
 src/
-  api/client.js          all backend calls in one place
-  components/
-    ChatView.jsx          composer + message list + trace panel layout
-    MessageBubble.jsx      one chat message (markdown-rendered)
-    SourceCitations.jsx    collapsible citation cards under an answer
-    TracePanel.jsx         agent reasoning log (THOUGHT/ACTION/OBSERVATION)
-    UploadView.jsx         PDF drag-drop, URL, arXiv, Wikipedia ingestion
-    DashboardView.jsx      collection stats chart + RAGAS eval runner
-  styles/index.css        design tokens + all component styles
+api/client.js          all backend calls in one place
+components/
+ChatView.jsx          composer + message list + trace panel layout
+MessageBubble.jsx      one chat message (markdown-rendered)
+SourceCitations.jsx    collapsible citation cards under an answer
+TracePanel.jsx         agent reasoning log (THOUGHT/ACTION/OBSERVATION)
+UploadView.jsx         PDF drag-drop, URL, arXiv, Wikipedia ingestion
+DashboardView.jsx      collection stats chart + RAGAS eval runner
+styles/index.css        design tokens + all component styles
 ```
 
-## Design concept
+## Design
 
-The reasoning trace is treated like a real terminal log rather than a
-generic sidebar, because a ReAct agent's steps are genuinely sequential —
-numbering and step labels (`THOUGHT`, `ACTION`, `OBSERVATION`) encode real
-information about what the agent did and in what order.
+Dark, glassmorphism theme — deep purple/violet gradient background, translucent
+blurred panels, pill-shaped controls. Citations render as small numbered badges;
+the reasoning trace renders as a stack of cards, since a ReAct agent's steps are
+genuinely sequential — the numbering and step labels (`THOUGHT`, `ACTION`,
+`OBSERVATION`) encode real information about what the agent did and in what order.
 
-## Known gap: agent trace
+## Agent integration
 
-Member 2's LangGraph agent isn't wired into the chat API yet. `TracePanel`
-is built to read a `trace: [{ type, content, tool? }]` array from the chat
-response — as soon as `/chat/query` or `/chat/conversation` include that
-field, the panel will start rendering real steps with zero frontend changes.
-Until then it shows an honest "no trace yet" state instead of faking it.
+Chat calls `POST /chat/agent` (Member 2's LangGraph ReAct agent), not the older
+plain-RAG `/chat/query` / `/chat/conversation` endpoints. The backend returns
+`reasoning_trace` in its own shape; `formatTrace()` in `ChatView.jsx` adapts that
+into what `TracePanel.jsx` expects (`{ type, content, tool? }`) without needing to
+change the panel itself.
+
+**Known limitation, not a frontend bug:** local Ollama models don't always emit
+tool calls reliably, especially on a second/refined call within one turn. Two
+defensive patches currently live in `backend/agent/service.py` and
+`backend/agent/prompts.py` to catch the visible symptoms (raw tool-call JSON
+leaking into an answer; the model fabricating a "according to X" attribution when
+a tool actually returned nothing useful). These are mitigations for a model
+reliability limitation, not a full fix — see commit history for details if this
+needs revisiting.
 
 ## RAGAS dashboard
 
-`DashboardView` calls two endpoints added for this work:
+`DashboardView` calls:
 - `GET /ingest/stats` — collection totals + source-type breakdown (chart)
-- `POST /evaluate/run` — runs given questions through the RAG chain and
-  scores them with RAGAS `faithfulness` / `answer_relevancy`
+- `POST /evaluate/run` — runs given questions through the RAG chain and scores
+  them with RAGAS `faithfulness` / `answer_relevancy`
 - `GET /evaluate/latest` — last run's scores, cached in-memory server-side
 
-These live in `backend/routers/evaluate.py` and
-`backend/evaluation/ragas_eval.py`, and are already registered in
-`backend/main.py`. Install the new deps before running the backend:
+These live in `backend/routers/evaluate.py` and `backend/evaluation/ragas_eval.py`.
+Install the deps before running the backend:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-Note: evaluation calls the local Ollama model once per question for the
-answer, plus more calls per metric to judge it — keep eval question lists
-to 5–10 items.
+**Important:** evaluation calls the local Ollama model once per question for the
+answer, plus several more calls per metric to judge it. On CPU-only local
+hardware this is genuinely slow — a single question can take 10-15+ minutes.
+Keep eval question lists short (1-3 items) for interactive testing, and treat a
+full run as something to do once and save the results, not something to
+re-run live in a demo.
