@@ -5,6 +5,38 @@ import TracePanel from './TracePanel.jsx';
 
 const STORAGE_KEY = 'researchmind:chat';
 
+// Backend (agent/service.py) emits steps shaped like:
+//   { type: "action", thought, tool, input }
+//   { type: "observation", tool, output }
+//   { type: "final_answer", output }
+// TracePanel renders steps shaped like:
+//   { type: "thought" | "action" | "observation" | "answer", content, tool? }
+// This adapts one to the other without touching the (already styled) panel.
+function formatTrace(rawTrace) {
+  if (!Array.isArray(rawTrace)) return [];
+  const steps = [];
+
+  for (const s of rawTrace) {
+    if (s.type === 'action') {
+      if (s.thought) {
+        steps.push({ type: 'thought', content: s.thought });
+      }
+      const args = s.input && Object.keys(s.input).length ? JSON.stringify(s.input) : '';
+      steps.push({
+        type: 'action',
+        tool: s.tool,
+        content: args ? `Calling ${s.tool}(${args})` : `Calling ${s.tool}`,
+      });
+    } else if (s.type === 'observation') {
+      steps.push({ type: 'observation', tool: s.tool, content: s.output });
+    } else if (s.type === 'final_answer') {
+      steps.push({ type: 'answer', content: s.output });
+    }
+  }
+
+  return steps;
+}
+
 function loadStoredChat() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
@@ -79,7 +111,7 @@ export default function ChatView() {
     scrollToBottom();
 
     try {
-      const result = await chatApi.converse(question, sessionId);
+      const result = await chatApi.agent(question, sessionId);
       if (result.session_id) setSessionId(result.session_id);
 
       setMessages((prev) => {
@@ -88,7 +120,7 @@ export default function ChatView() {
           role: 'assistant',
           content: result.answer,
           sources: result.sources,
-          trace: result.trace, // present once Member 2's agent adds it
+          trace: formatTrace(result.reasoning_trace),
         };
         return next;
       });
@@ -124,8 +156,8 @@ export default function ChatView() {
               <div className="empty-title">Open a new case file</div>
               Ask a question about anything you've ingested — a PDF, a paper
               pulled from arXiv, or a Wikipedia article. Answers come with
-              cited sources and, once the agent trace is wired up, a visible
-              reasoning log on the right.
+              cited sources and a visible reasoning trace on the right,
+              showing exactly which tools the agent used to get there.
             </div>
           )}
           {messages.map((m, i) => (
