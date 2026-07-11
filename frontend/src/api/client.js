@@ -34,6 +34,14 @@ export const chatApi = {
       body: JSON.stringify({ question, session_id: sessionId }),
     }),
 
+  // Agentic query — LangGraph ReAct agent (Member 2). Returns { answer,
+  // reasoning_trace, sources, session_id } instead of plain RAG output.
+  agent: (question, sessionId) =>
+    request('/chat/agent', {
+      method: 'POST',
+      body: JSON.stringify({ question, session_id: sessionId }),
+    }),
+
   history: (sessionId) => request(`/chat/history/${sessionId}`),
 };
 
