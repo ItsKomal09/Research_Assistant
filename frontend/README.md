@@ -1,7 +1,8 @@
 # ResearchMind — Frontend (Member 4)
 
-React + Vite UI for ResearchMind: chat, knowledge-base ingestion, agent
-reasoning trace, and a RAGAS evaluation dashboard.
+React + Vite UI for ResearchMind: chat with inline document attachment and a
+live reasoning trace, a knowledge-base document manager, and a RAGAS
+evaluation dashboard.
 
 ## Setup
 
@@ -11,23 +12,29 @@ npm install
 npm run dev
 ```
 
-Runs at `http://localhost:5173`. API calls to `/api/*` are proxied to your
-FastAPI backend at `http://localhost:8000` (see `vite.config.js`). Make sure
-the backend is running and Ollama is up (`ollama serve`) before testing chat.
+Runs at `http://localhost:5173`. API calls to `/api/*` are proxied to your FastAPI
+backend at `http://localhost:8000` (see `vite.config.js`). Make sure the backend is
+running and Ollama is up (`ollama serve`, with `llama3.2` pulled) before testing chat.
 
 ## Structure
 
 ```
 src/
 api/client.js          all backend calls in one place
+utils/documentStore.js localStorage-backed record of every document ingested
+this browser (no backend "list documents" endpoint exists)
 components/
-ChatView.jsx          composer + message list + trace panel layout
+ChatView.jsx          message list + two-row composer + trace panel layout
+AttachmentBar.jsx      composer's second row — attach a PDF, URL, arXiv
+paper, or Wikipedia article without leaving the chat
 MessageBubble.jsx      one chat message (markdown-rendered)
 SourceCitations.jsx    collapsible citation cards under an answer
 TracePanel.jsx         agent reasoning log (THOUGHT/ACTION/OBSERVATION)
-UploadView.jsx         PDF drag-drop, URL, arXiv, Wikipedia ingestion
+UploadView.jsx         Knowledge Base page — document manager (list +
+delete) only; adding documents happens in Chat now
 DashboardView.jsx      collection stats chart + RAGAS eval runner
 styles/index.css        design tokens + all component styles
+
 ```
 
 ## Design
@@ -37,6 +44,23 @@ blurred panels, pill-shaped controls. Citations render as small numbered badges;
 the reasoning trace renders as a stack of cards, since a ReAct agent's steps are
 genuinely sequential — the numbering and step labels (`THOUGHT`, `ACTION`,
 `OBSERVATION`) encode real information about what the agent did and in what order.
+
+## Where document ingestion lives
+
+Attaching a document happens **from the chat composer** (`AttachmentBar.jsx`),
+not the Knowledge Base page — PDF opens a file picker directly; URL, arXiv,
+and Wikipedia open a small inline prompt for the query/link. The Knowledge
+Base page (`UploadView.jsx`) is document *management* only: a list of
+everything ever ingested (read from `documentStore.js`, a local record kept
+since there's no backend "list all documents" endpoint) with delete buttons
+wired to `DELETE /ingest/session/{session_id}`.
+
+Every attachment gets its own unique backend `session_id` regardless of which
+chat it was uploaded from — this matters because ChromaDB deletion happens
+by `session_id`, and reusing the chat's own conversation ID for multiple
+documents would delete all of them together when only one is removed.
+`chatSessionId` is a separate, purely local field used only to decide which
+doc pills to show above a given conversation's composer.
 
 ## Agent integration
 
@@ -54,6 +78,13 @@ leaking into an answer; the model fabricating a "according to X" attribution whe
 a tool actually returned nothing useful). These are mitigations for a model
 reliability limitation, not a full fix — see commit history for details if this
 needs revisiting.
+
+**Also known:** `GET /ingest/stats` (used by the Dashboard chart) only samples
+the first 500 chunks in `rag/vectorstore.py`'s `get_collection_stats()`, so
+source types added after the collection passes 500 total chunks can appear
+missing from the breakdown even though they're correctly stored. Fix is a
+one-line change (`sample = vs.get(limit=count)` instead of `limit=min(count, 500)`)
+— flagged to Member 1 since it's their file.
 
 ## RAGAS dashboard
 
