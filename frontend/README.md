@@ -17,22 +17,14 @@ Runs at `http://localhost:5173`. API calls to `/api/*` get proxied to the FastAP
 ```
 src/
 api/client.js          all backend calls in one place
-<<<<<<< HEAD
-utils/documentStore.js localStorage-backed record of every document ingested this browser (no backend "list documents" endpoint exists)
-=======
 utils/documentStore.js localStorage record of every doc ingested in this browser (there's no backend "list documents" endpoint)
->>>>>>> c09837f (README.md updated)
 components/
 ChatView.jsx          message list + two-row composer + trace panel layout
 AttachmentBar.jsx      composer's second row — attach a PDF, URL, arXiv paper, or Wikipedia article without leaving the chat
 MessageBubble.jsx      one chat message (markdown-rendered)
 SourceCitations.jsx    collapsible citation cards under an answer
 TracePanel.jsx         agent reasoning log (THOUGHT/ACTION/OBSERVATION)
-<<<<<<< HEAD
-UploadView.jsx         Knowledge Base page — document manager (list + delete) only; adding documents happens in Chat now
-=======
 UploadView.jsx         Knowledge Base page — document manager
->>>>>>> c09837f (README.md updated)
 DashboardView.jsx      collection stats chart + RAGAS eval runner
 styles/index.css        design tokens + all component styles
 
@@ -69,13 +61,4 @@ These live in `backend/routers/evaluate.py` and `backend/evaluation/ragas_eval.p
 pip install -r requirements.txt
 ```
 
-<<<<<<< HEAD
-**Important:** evaluation calls the local Ollama model once per question for the
-answer, plus several more calls per metric to judge it. On CPU-only local
-hardware this is genuinely slow — a single question can take 10-15+ minutes.
-Keep eval question lists short (1-3 items) for interactive testing, and treat a
-full run as something to do once and save the results, not something to
-re-run live in a demo.
-=======
 **Heads up:** evaluation calls the local Ollama model once per question for the answer, then several more times per metric to judge it. On CPU-only hardware this is slow — one question can take 10-15+ minutes. Keep eval question lists short (1-3 items) for testing, and don't try to run a full eval live in a demo — do it once ahead of time and save the results.
->>>>>>> c09837f (README.md updated)
