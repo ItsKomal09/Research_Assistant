@@ -21,17 +21,14 @@ running and Ollama is up (`ollama serve`, with `llama3.2` pulled) before testing
 ```
 src/
 api/client.js          all backend calls in one place
-utils/documentStore.js localStorage-backed record of every document ingested
-this browser (no backend "list documents" endpoint exists)
+utils/documentStore.js localStorage-backed record of every document ingested this browser (no backend "list documents" endpoint exists)
 components/
 ChatView.jsx          message list + two-row composer + trace panel layout
-AttachmentBar.jsx      composer's second row — attach a PDF, URL, arXiv
-paper, or Wikipedia article without leaving the chat
+AttachmentBar.jsx      composer's second row — attach a PDF, URL, arXiv paper, or Wikipedia article without leaving the chat
 MessageBubble.jsx      one chat message (markdown-rendered)
 SourceCitations.jsx    collapsible citation cards under an answer
 TracePanel.jsx         agent reasoning log (THOUGHT/ACTION/OBSERVATION)
-UploadView.jsx         Knowledge Base page — document manager (list +
-delete) only; adding documents happens in Chat now
+UploadView.jsx         Knowledge Base page — document manager (list + delete) only; adding documents happens in Chat now
 DashboardView.jsx      collection stats chart + RAGAS eval runner
 styles/index.css        design tokens + all component styles
 
