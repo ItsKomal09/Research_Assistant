@@ -73,6 +73,11 @@ export const ingestApi = {
     }),
 
   stats: () => request('/ingest/stats'),
+
+  // Deletes every chunk belonging to a session — backs the delete button
+  // in the Knowledge Base document manager.
+  deleteSession: (sessionId) =>
+    request(`/ingest/session/${sessionId}`, { method: 'DELETE' }),
 };
 
 // ── Evaluation (RAGAS) ────────────────────────────

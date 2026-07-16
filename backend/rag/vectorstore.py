@@ -141,7 +141,8 @@ def get_collection_stats() -> dict:
 
     # sample a few docs to show source breakdown
     if count > 0:
-        sample = vs.get(limit=min(count, 500))
+        # sample = vs.get(limit=min(count, 500))
+        sample = vs.get(limit=count)
         metadatas = sample.get("metadatas", [])
 
         source_counts = {}

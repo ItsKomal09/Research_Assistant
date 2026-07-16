@@ -2,16 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { chatApi } from '../api/client.js';
 import MessageBubble from './MessageBubble.jsx';
 import TracePanel from './TracePanel.jsx';
+import AttachmentBar from './AttachmentBar.jsx';
+import { subscribe as subscribeDocuments } from '../utils/documentStore.js';
 
 const STORAGE_KEY = 'researchmind:chat';
 
-// Backend (agent/service.py) emits steps shaped like:
-//   { type: "action", thought, tool, input }
-//   { type: "observation", tool, output }
-//   { type: "final_answer", output }
-// TracePanel renders steps shaped like:
-//   { type: "thought" | "action" | "observation" | "answer", content, tool? }
-// This adapts one to the other without touching the (already styled) panel.
 function formatTrace(rawTrace) {
   if (!Array.isArray(rawTrace)) return [];
   const steps = [];
@@ -44,9 +39,6 @@ function loadStoredChat() {
     const parsed = JSON.parse(raw);
     const rawMessages = Array.isArray(parsed.messages) ? parsed.messages : [];
 
-    // If the page was refreshed while a response was still in flight, that
-    // message got saved mid-"thinking". There's no real request behind it
-    // anymore, so it would otherwise show a frozen spinner forever.
     const messages = rawMessages.map((m) =>
       m.pending
         ? {
@@ -70,18 +62,20 @@ export default function ChatView() {
   const [sending, setSending] = useState(false);
   const [sessionId, setSessionId] = useState(initial.sessionId);
   const [selectedIdx, setSelectedIdx] = useState(null);
+  const [documents, setDocuments] = useState([]);
   const scrollRef = useRef(null);
 
   const selected = selectedIdx !== null ? messages[selectedIdx] : null;
 
-  // Persist to localStorage whenever the conversation changes, so a
-  // browser refresh (not just switching tabs inside the app) survives.
+  const sessionDocuments = documents.filter((d) => d.chatSessionId === sessionId);
+
+  useEffect(() => subscribeDocuments(setDocuments), []);
+
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify({ messages, sessionId }));
     } catch {
-      // localStorage can fail in rare cases (private browsing quotas, etc.) —
-      // non-fatal, chat still works, it just won't survive a refresh.
+      // non-fatal
     }
   }, [messages, sessionId]);
 
@@ -102,14 +96,14 @@ export default function ChatView() {
     const question = input.trim();
     if (!question || sending) return;
 
-    const assistantIndex = messages.length + 1; // user msg, then this assistant msg
+    const assistantIndex = messages.length + 1;
     setInput('');
     setSending(true);
 
     const userMsg = { role: 'user', content: question };
     const pendingMsg = { role: 'assistant', content: '', pending: true };
     setMessages((prev) => [...prev, userMsg, pendingMsg]);
-    setSelectedIdx(assistantIndex); // auto-show the trace for the message being answered
+    setSelectedIdx(assistantIndex);
     scrollToBottom();
 
     try {
@@ -172,29 +166,42 @@ export default function ChatView() {
           ))}
         </div>
 
-        <div className="composer">
-          <textarea
-            rows={2}
-            placeholder="Ask ResearchMind… (Enter to send, Shift+Enter for newline)"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-          />
-          <button className="send" onClick={handleSend} disabled={sending || !input.trim()}>
-            Send
-          </button>
-          {messages.length > 0 && (
-            <button
-              onClick={handleClearChat}
-              title="Clear conversation"
-              style={{
-                background: 'transparent', border: '1px solid var(--border)',
-                color: 'var(--text-faint)', borderRadius: 6, padding: '0 12px', fontSize: 12,
-              }}
-            >
-              Clear
+        {sessionDocuments.length > 0 && (
+          <div className="doc-pills-row">
+            {sessionDocuments.map((doc) => (
+              <span className="doc-pill" key={doc.id} title={`${doc.chunkCount} chunks`}>
+                📄 {doc.fileName}
+              </span>
+            ))}
+          </div>
+        )}
+
+        <div className="composer-box">
+          <div className="composer-row-top">
+            <textarea
+              rows={2}
+              placeholder="Ask ResearchMind… (Enter to send, Shift+Enter for newline)"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+            />
+            <button className="send" onClick={handleSend} disabled={sending || !input.trim()}>
+              Send
             </button>
-          )}
+            {messages.length > 0 && (
+              <button
+                onClick={handleClearChat}
+                title="Clear conversation"
+                style={{
+                  background: 'transparent', border: '1px solid var(--glass-border-strong)',
+                  color: 'var(--text-faint)', borderRadius: 100, padding: '0 14px', fontSize: 12,
+                }}
+              >
+                Clear
+              </button>
+            )}
+          </div>
+          <AttachmentBar chatSessionId={sessionId} />
         </div>
       </div>
 

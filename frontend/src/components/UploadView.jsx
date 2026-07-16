@@ -1,147 +1,89 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { ingestApi } from '../api/client.js';
+import { subscribe as subscribeDocuments, removeBySession } from '../utils/documentStore.js';
 
+const SOURCE_ICON = { pdf: '📄', url: '🔗', arxiv: '📚', wikipedia: '📖', unknown: '📁' };
+
+/**
+ * Knowledge Base page — document management only (list + delete).
+ * Adding documents happens from the chat composer's attachment bar
+ * (AttachmentBar.jsx) instead, so this page isn't a duplicate ingestion
+ * form anymore — it's the one place to see everything ever ingested,
+ * across every conversation, and remove it.
+ */
 export default function UploadView() {
+  const [documents, setDocuments] = useState([]);
+  const [deletingId, setDeletingId] = useState(null);
   const [log, setLog] = useState([]);
-  const [busy, setBusy] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
 
-  const [urlInput, setUrlInput] = useState('');
-  const [arxivInput, setArxivInput] = useState('');
-  const [wikiInput, setWikiInput] = useState('');
+  useEffect(() => subscribeDocuments(setDocuments), []);
 
   function pushLog(text, ok = true) {
     setLog((prev) => [...prev, { text, ok, ts: new Date().toLocaleTimeString() }]);
   }
 
-  async function withBusy(fn) {
-    setBusy(true);
+  async function handleDelete(doc) {
+    setDeletingId(doc.id);
     try {
-      await fn();
+      await ingestApi.deleteSession(doc.sessionId);
+      removeBySession(doc.sessionId);
+      pushLog(`Deleted ${doc.fileName}`);
     } catch (err) {
-      pushLog(err.message, false);
+      pushLog(`Failed to delete ${doc.fileName}: ${err.message}`, false);
     } finally {
-      setBusy(false);
+      setDeletingId(null);
     }
-  }
-
-  function handlePdfFiles(files) {
-    if (!files || files.length === 0) return;
-    withBusy(async () => {
-      for (const file of files) {
-        pushLog(`Uploading ${file.name}…`);
-        const res = await ingestApi.pdf(file);
-        pushLog(`${file.name}: ${res.message || `added ${res.added} chunks`}`);
-      }
-    });
-  }
-
-  function handleUrl() {
-    if (!urlInput.trim()) return;
-    withBusy(async () => {
-      pushLog(`Fetching ${urlInput}…`);
-      const res = await ingestApi.url(urlInput.trim());
-      pushLog(res.message || `added ${res.added} chunks`);
-      setUrlInput('');
-    });
-  }
-
-  function handleArxiv() {
-    if (!arxivInput.trim()) return;
-    withBusy(async () => {
-      pushLog(`Searching arXiv for "${arxivInput}"…`);
-      const res = await ingestApi.arxiv(arxivInput.trim(), 5);
-      pushLog(res.message || `added ${res.added} chunks`);
-      setArxivInput('');
-    });
-  }
-
-  function handleWikipedia() {
-    if (!wikiInput.trim()) return;
-    withBusy(async () => {
-      pushLog(`Searching Wikipedia for "${wikiInput}"…`);
-      const res = await ingestApi.wikipedia(wikiInput.trim());
-      pushLog(res.message || `added ${res.added} chunks`);
-      setWikiInput('');
-    });
   }
 
   return (
     <div className="panel-view">
       <h1 className="panel-title">Knowledge base</h1>
-      <p className="panel-sub">Add sources for the agent to reason over.</p>
+      <p className="panel-sub">
+        Everything ingested across every conversation. To add a new source, use
+        the attachment bar in Chat — this page is for reviewing and removing
+        what's already there.
+      </p>
 
-      <div className="ingest-grid">
-        <div className="ingest-card">
-          <h3>PDF upload</h3>
-          <div
-            className={`dropzone ${dragOver ? 'drag-over' : ''}`}
-            onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              handlePdfFiles(Array.from(e.dataTransfer.files).filter((f) => f.type === 'application/pdf'));
-            }}
-          >
-            Drag a PDF here, or
-            <div style={{ marginTop: 8 }}>
-              <input
-                type="file"
-                accept="application/pdf"
-                multiple
-                disabled={busy}
-                onChange={(e) => handlePdfFiles(Array.from(e.target.files))}
-              />
+      <div className="chart-card">
+        <h3>Document manager</h3>
+        {documents.length === 0 ? (
+          <div className="doc-manager-empty">
+            Nothing ingested yet — attach a PDF, URL, arXiv paper, or
+            Wikipedia article from the Chat composer to get started.
+          </div>
+        ) : (
+          <div className="doc-manager-list">
+            {documents.map((doc) => (
+              <div className="doc-manager-row" key={doc.id}>
+                <span className="doc-manager-icon">{SOURCE_ICON[doc.sourceType] || SOURCE_ICON.unknown}</span>
+                <div className="doc-manager-info">
+                  <div className="doc-manager-name">{doc.fileName}</div>
+                  <div className="doc-manager-meta">
+                    {doc.chunkCount} chunks · {doc.sourceType} · {new Date(doc.ingestedAt).toLocaleString()}
+                  </div>
+                </div>
+                <button
+                  className="doc-manager-delete"
+                  disabled={deletingId === doc.id}
+                  onClick={() => handleDelete(doc)}
+                >
+                  {deletingId === doc.id ? 'Deleting…' : 'Delete'}
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {log.length > 0 && (
+        <div className="ingest-log">
+          {log.map((l, i) => (
+            <div className={`log-line ${l.ok ? 'ok' : 'err'}`} key={i}>
+              [{l.ts}] {l.text}
             </div>
-          </div>
+          ))}
         </div>
-
-        <div className="ingest-card">
-          <h3>From URL</h3>
-          <input
-            type="text"
-            placeholder="https://example.com/article"
-            value={urlInput}
-            onChange={(e) => setUrlInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleUrl()}
-          />
-          <button onClick={handleUrl} disabled={busy || !urlInput.trim()}>Ingest URL</button>
-        </div>
-
-        <div className="ingest-card">
-          <h3>arXiv search</h3>
-          <input
-            type="text"
-            placeholder="e.g. retrieval augmented generation"
-            value={arxivInput}
-            onChange={(e) => setArxivInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleArxiv()}
-          />
-          <button onClick={handleArxiv} disabled={busy || !arxivInput.trim()}>Fetch papers</button>
-        </div>
-
-        <div className="ingest-card">
-          <h3>Wikipedia</h3>
-          <input
-            type="text"
-            placeholder="e.g. Transformer architecture"
-            value={wikiInput}
-            onChange={(e) => setWikiInput(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && handleWikipedia()}
-          />
-          <button onClick={handleWikipedia} disabled={busy || !wikiInput.trim()}>Fetch article</button>
-        </div>
-      </div>
-
-      <div className="ingest-log">
-        {log.length === 0 && <div className="log-line">No activity yet.</div>}
-        {log.map((l, i) => (
-          <div className={`log-line ${l.ok ? 'ok' : 'err'}`} key={i}>
-            [{l.ts}] {l.text}
-          </div>
-        ))}
-      </div>
+      )}
     </div>
   );
 }
